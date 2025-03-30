@@ -1,31 +1,82 @@
-/**
- * Blink
- *
- * Turns on an LED on for one second,
- * then off for one second, repeatedly.
- */
-#include "Arduino.h"
+#include <Arduino.h>
+#include "HM10.h"
+#include "Lora.h"
+#include "barometer.h"
+#include "MPU.h"
 
-// Set LED_BUILTIN if it is not defined by Arduino framework
-// #define LED_BUILTIN 13
+// Initialisation des objets
+HM10 hm10(Serial1);
 
-void setup()
-{
-  // initialize LED digital pin as an output.
-  pinMode(LED_BUILTIN, OUTPUT);
+// Variables pour stocker les données des capteurs
+float temperature, pressure, humidity, altitude;
+Quaternion q;
+float ypr[3];
+
+// Callback pour les messages Bluetooth
+void onBluetoothMessageReceived(const String &message) {
+    if (message == "COMMAND1") {
+        Serial.println("Commande 1 reçue via Bluetooth !");
+    } else if (message == "COMMAND2") {
+        Serial.println("Commande 2 reçue via Bluetooth !");
+    }
 }
 
-void loop()
-{
-  // turn the LED on (HIGH is the voltage level)
-  digitalWrite(LED_BUILTIN, HIGH);
+// Callback pour les messages LoRa
+void onLoraMessageReceived(const String &message) {
+    if (message == "COMMAND1") {
+        Serial.println("Commande 1 reçue via LoRa !");
+    } else if (message == "COMMAND2") {
+        Serial.println("Commande 2 reçue via LoRa !");
+    }
+}
 
-  // wait for a second
-  delay(1000);
+void setup() {
+    Serial.begin(9600);
 
-  // turn the LED off by making the voltage LOW
-  digitalWrite(LED_BUILTIN, LOW);
+    // Initialisation des modules Bluetooth et LoRa
+    hm10.begin(9600);
+    hm10.setCallback(onBluetoothMessageReceived);
+    setupLora();
+    setLoraCallback(onLoraMessageReceived);
 
-   // wait for a second
-  delay(1000);
+    // Configurer les interruptions pour HM-10 et LoRa
+    attachInterrupt(digitalPinToInterrupt(19), []() { hm10.handleInterrupt(); }, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(AUX), []() {
+        // Vérifier explicitement si des données LoRa sont disponibles
+        handleLoraInterrupt();
+    }, CHANGE);
+
+    // Initialisation des capteurs
+    initializeBarometer();
+    offsetBarometer(); // Calibrer l'altitude
+    initializeMPU();
+}
+
+void loop() {
+    // Lecture des données des capteurs
+    readTemperature(&temperature);
+    readPressure(&pressure);
+    readHumidity(&humidity);
+    readAltitude();
+
+    // Affichage des données des capteurs (facultatif)
+    Serial.print("Température : ");
+    Serial.println(temperature);
+    Serial.print("Pression : ");
+    Serial.println(pressure);
+    Serial.print("Humidité : ");
+    Serial.println(humidity);
+    Serial.print("Altitude : ");
+    Serial.println(altitude);
+
+    // Lecture des données de l'IMU
+    readMPU(&q, ypr);
+    Serial.print("Yaw : ");
+    Serial.println(ypr[0]);
+    Serial.print("Pitch : ");
+    Serial.println(ypr[1]);
+    Serial.print("Roll : ");
+    Serial.println(ypr[2]);
+
+    delay(100); // Pause pour éviter de saturer le port série
 }
