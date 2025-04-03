@@ -1,16 +1,16 @@
 #ifndef MPU_H
 #define MPU_H
 
-#include "MPU6050_6Axis_MotionApps20.h"
+#include <Arduino.h>
+#include "Adafruit_MPU6050.h"
+#include "Adafruit_Sensor.h"
 #include <Wire.h>
-#include "I2Cdev.h"
-#include "Config.h"
-
-extern VectorFloat raw_angular_velocity;
-extern VectorFloat raw_acceleration;
+#include <../../include/Config.h>
 
 void initializeMPU();
 
-void readMPU(Quaternion* q, float* ypr);
+void calibrateMPU();
+
+void readMPU(float* correctedAccel, float* correctedGyro, float* temperature);
 
 #endif

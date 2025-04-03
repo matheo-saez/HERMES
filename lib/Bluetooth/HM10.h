@@ -9,6 +9,7 @@ public:
     void begin(unsigned long baudRate);
     void setCallback(void (*callback)(const String &message));
     void handleInterrupt();
+    void send(const String & message);
 
 private:
     HardwareSerial &hm10Serial;

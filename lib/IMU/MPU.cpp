@@ -1,48 +1,84 @@
-#include <Arduino.h>
 #include "MPU.h"
 
-MPU6050 mpu;
+Adafruit_MPU6050 mpu;
 
-// definition for extern
-//Quaternion raw_q;
-//float raw_ypr[3];
-VectorFloat raw_angular_velocity;
-VectorFloat gravity;
-VectorFloat raw_acceleration;
-
-const int a_range = 16;
-const float G = 9.81;
-const int g_range = 2000;
-
-uint8_t fifoBuffer[64]; // FIFO storage buffer
+float accelOffsetX = 0, accelOffsetY = 0, accelOffsetZ = 0;
+float gyroOffsetX = 0, gyroOffsetY = 0, gyroOffsetZ = 0;
 
 void initializeMPU() {
-    Wire.begin();
-    mpu.initialize();
-    mpu.setFullScaleGyroRange(MPU6050_GYRO_FS_2000);
-    mpu.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);
-    Serial.println(mpu.testConnection() ? "MPU6050 connection successful" : 
-                                          "MPU6050 connection failed");
-    mpu.setXGyroOffset(GyroXOffset);
-    mpu.setYGyroOffset(GyroYOffset);
-    mpu.setZGyroOffset(GyroZOffset);
-    mpu.setXAccelOffset(AccelXOffset);
-    mpu.setYAccelOffset(AccelYOffset);
-    mpu.setZAccelOffset(AccelZOffset);
+    Serial.println(F("Initialize System"));
+    if (!mpu.begin(0x69)) { // Change address if needed
+        Serial.println("Failed to find MPU6050 chip");
+        while (1) {
+            delay(10);
+        }
+    }
+
+    mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
+    mpu.setGyroRange(MPU6050_RANGE_250_DEG);
+    mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 }
 
-void readMPU(Quaternion* q, float* ypr) {
-    VectorInt16 int_acceleration;
-    VectorInt16 int_angular_velocity;
-    
-    mpu.getMotion6(&int_acceleration.x, &int_acceleration.y, &int_acceleration.z, 
-                   &int_angular_velocity.x, &int_angular_velocity.y, &int_angular_velocity.z);
+void calibrateMPU() {
+    sensors_event_t a, g, temp;
 
-    raw_acceleration.x = map(int_acceleration.x, -32768, 32767, -a_range*G, a_range*G);
-    raw_acceleration.y = map(int_acceleration.y, -32768, 32767, -a_range*G, a_range*G);
-    raw_acceleration.z = map(int_acceleration.z, -32768, 32767, -a_range*G, a_range*G);
+    // Initialiser les offsets à 0
+    accelOffsetX = accelOffsetY = accelOffsetZ = 0;
+    gyroOffsetX = gyroOffsetY = gyroOffsetZ = 0;
 
-    raw_angular_velocity.x = map(int_angular_velocity.x, -32768, 32767, -g_range, g_range);
-    raw_angular_velocity.y = map(int_angular_velocity.y, -32768, 32767, -g_range, g_range);
-    raw_angular_velocity.z = map(int_angular_velocity.z, -32768, 32767, -g_range, g_range);
+    // Lire plusieurs échantillons pour calculer les offsets
+    const int numSamples = 100;
+    for (int i = 0; i < numSamples; i++) {
+        mpu.getEvent(&a, &g, &temp);
+
+        accelOffsetX += a.acceleration.x;
+        accelOffsetY += a.acceleration.y;
+        accelOffsetZ += a.acceleration.z;
+
+        gyroOffsetX += g.gyro.x;
+        gyroOffsetY += g.gyro.y;
+        gyroOffsetZ += g.gyro.z;
+
+        delay(10); // Petite pause entre les lectures
+    }
+
+    // Calculer la moyenne des offsets
+    accelOffsetX /= numSamples;
+    accelOffsetY /= numSamples;
+    accelOffsetZ /= numSamples;
+    gyroOffsetX /= numSamples;
+    gyroOffsetY /= numSamples;
+    gyroOffsetZ /= numSamples;
+
+    Serial.println("Calibration done!");
+    Serial.print("Accel Offsets: X=");
+    Serial.print(accelOffsetX);
+    Serial.print(", Y=");
+    Serial.print(accelOffsetY);
+    Serial.print(", Z=");
+    Serial.println(accelOffsetZ);
+
+    Serial.print("Gyro Offsets: X=");
+    Serial.print(gyroOffsetX);
+    Serial.print(", Y=");
+    Serial.print(gyroOffsetY);
+    Serial.print(", Z=");
+    Serial.println(gyroOffsetZ);
+}
+
+void readMPU(float* correctedAccel, float* correctedGyro, float* temperature) {
+    // Nouvelle méthode pour lire les données avec votre librairie privée
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+
+    // Appliquer les offsets pour corriger les valeurs
+    correctedAccel[0] = a.acceleration.x - accelOffsetX;
+    correctedAccel[1] = a.acceleration.y - accelOffsetY;
+    correctedAccel[2] = a.acceleration.z - accelOffsetZ;
+
+    correctedGyro[0] = g.gyro.x - gyroOffsetX;
+    correctedGyro[1] = g.gyro.y - gyroOffsetY;
+    correctedGyro[2] = g.gyro.z - gyroOffsetZ;
+
+    *temperature = temp.temperature;
 }

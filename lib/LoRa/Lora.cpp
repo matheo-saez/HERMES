@@ -1,31 +1,31 @@
-#include <Arduino.h>
 #include "Lora.h"
 
-#define DESTINATION_ADDL 2
-#define ENABLE_RSSI true
+Lora::Lora()
+    : e220ttl(TX_E220_900T22D, RX_E220_900T22D, AUX, M0, M1) {}
 
-LoRa_E220 e220ttl(TX_E220_900T22D, RX_E220_900T22D, AUX, M0, M1);
-
-// Callback pour gérer les messages reçus
-void (*messageCallback)(const String &message) = nullptr;
-
-void setupLora() {
+void Lora::begin() {
     // Initialisation des broches et de l'UART
     e220ttl.begin();
+
+    delay(1000); // Attendre 1 seconde pour la stabilisation
+
+    if (!e220ttl.begin()) {
+        Serial.println("Erreur : Impossible d'initialiser le module LoRa !");
+    }
 
     // Lecture de la configuration (sans impression)
     ResponseStructContainer c = e220ttl.getConfiguration();
     Configuration configuration = *(Configuration *)c.data;
     c.close(); // Libérer la mémoire allouée dynamiquement
 
-    // Le module LoRa est maintenant prêt
+    Serial.println("Le module LoRa est maintenant prêt.");
 }
 
-void setLoraCallback(void (*callback)(const String &message)) {
+void Lora::setCallback(void (*callback)(const String &message)) {
     messageCallback = callback;
 }
 
-void handleLoraInterrupt() {
+void Lora::handleInterrupt() {
     // Vérifier si des données sont disponibles
     if (e220ttl.available() > 1) {
 #ifdef ENABLE_RSSI
@@ -34,7 +34,7 @@ void handleLoraInterrupt() {
         ResponseContainer rc = e220ttl.receiveMessage();
 #endif
         if (rc.status.code != 1) {
-            // Gestion des erreurs (facultatif)
+            Serial.println("Erreur lors de la réception du message.");
         } else {
             String receivedMessage = rc.data;
 
@@ -44,4 +44,29 @@ void handleLoraInterrupt() {
             }
         }
     }
+}
+
+void Lora::sendMessage(const String &message) {
+    ResponseStatus rs = e220ttl.sendMessage(message);
+
+    if (rs.code != 1) {
+        Serial.print("Erreur lors de l'envoi du message : ");
+        Serial.println(rs.getResponseDescription());
+    } else {
+        Serial.println("Message envoyé avec succès !");
+    }
+}
+
+void Lora::printParameters() {
+    ResponseStructContainer c = e220ttl.getConfiguration();
+    Configuration configuration = *(Configuration *)c.data;
+
+    Serial.println("Configuration actuelle du module LoRa :");
+    Serial.print("Adresse : ");
+    Serial.println(configuration.ADDH, HEX);
+    Serial.print("Vitesse UART : ");
+    Serial.println(configuration.SPED.uartBaudRate);
+    // Ajoutez d'autres paramètres si nécessaire
+
+    c.close(); // Libérer la mémoire allouée dynamiquement
 }

@@ -24,3 +24,7 @@ void HM10::handleInterrupt() {
         }
     }
 }
+
+void HM10::send(const String &message) {
+    hm10Serial.println(message); // Envoie le message suivi d'un retour à la ligne
+}

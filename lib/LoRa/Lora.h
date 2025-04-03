@@ -1,19 +1,22 @@
 #ifndef LORA_H
 #define LORA_H
 
+#include <Arduino.h>
 #include "LoRa_E220.h"
 #include "Pins.h"
 
-// Initialisation du module LoRa
-void setupLora();
+class Lora {
+public:
+    Lora();
+    void begin();
+    void setCallback(void (*callback)(const String &message));
+    void handleInterrupt();
+    void sendMessage(const String &message);
+    void printParameters();
 
-// Définir un callback pour les messages reçus
-void setLoraCallback(void (*callback)(const String &message));
+private:
+    LoRa_E220 e220ttl;
+    void (*messageCallback)(const String &message) = nullptr;
+};
 
-// Gestion des interruptions pour les messages LoRa
-void handleLoraInterrupt();
-
-// Afficher les paramètres du module
-void printParameters(struct Configuration configuration);
-
-#endif
+#endif // LORA_H

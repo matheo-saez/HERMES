@@ -5,6 +5,6 @@
 
 void initializePyro();
 
-void pyro(int pyro_num, int state);
+void pyro(int pyro_num);
 
 #endif

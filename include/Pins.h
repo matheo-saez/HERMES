@@ -24,8 +24,9 @@ constexpr int PYRO_2 = 25;
 constexpr int PYRO_3 = 26;
 constexpr int PYRO_4 = 27;
 /*
-28, 29, 33, 34 are reserved for future use.
+28, 29, 33 are reserved for future use.
 */
+constexpr int EN = 34;
 constexpr int PPS = 35;
 constexpr int SD_CS = 36;
 constexpr int FLASH_CS = 37;
